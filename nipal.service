@@ -1,0 +1,12 @@
+[Unit]
+Description=core driver services to National Instruments drivers
+After=remote-fs.target
+
+[Service]
+#RemainAfterExit=yes
+Type=forking
+ExecStart=/bin/bash /opt/ni-visa/usr/local/natinst/nipal/etc/init.d/nipal start
+ExecStop=/bin/bash /opt/ni-visa/usr/local/natinst/nipal/etc/init.d/nipal stop
+
+[Install]
+WantedBy=multi-user.target
