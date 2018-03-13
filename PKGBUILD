@@ -3,6 +3,8 @@ pkgname=('ni-visa-core'
 'ni-visa-nilxid'
 'ni-visa-mdnsresponder'
 'ni-visa-modules-dkms'
+'lib32-labview-2015-rte'
+'lib32-ni-visa-config'
 )
 pkgbase='ni-visa'
 _pkgbase=${pkgbase}
@@ -52,15 +54,18 @@ prepare() {
 package_ni-visa-core(){
   provides+=('ni-visa')
   conflicts+=('ni-visa')
-  backup=("${_vxipnppath}/linux/NIvisa/Passport64/nivisa.ini")
-  backup=("${_vxipnppath}/linux/NIvisa/Passport/nivisa.ini")
-  mkdir -p "${pkgdir}"{/opt/${_pkgbase},/etc/natinst,/usr/include,/usr/lib,/usr/lib32,/etc/profile.d,/etc/ld.so.conf.d}
+  backup=("${_vxipnppath}/linux/NIvisa/Passport64/nivisa.ini"
+  "${_vxipnppath}/linux/NIvisa/Passport/nivisa.ini"
+  "${_vxipnppath}/linux/NIvisa/visaconf.ini")
+  mkdir -p "${pkgdir}"{/opt/${_pkgbase},/etc/natinst,/usr/include,/usr/lib,/usr/lib32,/etc/profile.d,/etc/ld.so.conf.d,/"${_natinst}"/share/NI-VISA}
   bsdtar -xf "${srcdir}"/rpms/nivisa-32bit-${pkgver}-f*.x86_64.rpm -C "${pkgdir}/opt/${_pkgbase}"
   bsdtar -xf "${srcdir}"/rpms/nivisa-${pkgver}-f*.x86_64.rpm -C "${pkgdir}/opt/${_pkgbase}"
   ln -s /"${_vxipnppath}"/linux/lib64/libvisa.so "${pkgdir}"/usr/lib/libvisa.so
   ln -s /"${_vxipnppath}"/linux/bin/libvisa.so "${pkgdir}"/usr/lib32/libvisa.so
   install -m644 "${srcdir}"/extract/usr/local/vxipnp/linux/include/*.h "${pkgdir}"/usr/include/
   install -Dm644 99-usbtmc.rules "${pkgdir}"/usr/lib/udev/rules.d/99-usbtmc.rules
+  ln -s  /"${_vxipnppath}"/linux/NIvisa/.LabVIEW/libVisaCtrl.so "${pkgdir}/${_natinst}"/share/NI-VISA/libVisaCtrl.so
+  ln -s  /"${_vxipnppath}"/linux/NIvisa/.LabVIEW64/libVisaCtrl.so "${pkgdir}/${_natinst}"/share/NI-VISA/libVisaCtrl64.so
   echo "export VXIPNPPATH=/${_vxipnppath}" > "${pkgdir}"/etc/profile.d/vxipnppath.sh
   echo "${_vxipnppath}" > "${pkgdir}/${_vxipnppath}"/etc/vxipnp.dir
   ln -s "/${_vxipnppath}/etc" "${pkgdir}"/etc/natinst/nivisa
@@ -148,4 +153,35 @@ package_ni-visa-modules-dkms() {
   install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
+package_lib32-labview-2015-rte () {
+  depends+=('lib32-gcc-libs'
+'lib32-libxinerama')
+  provides=('lib32-labview-2015')
+  conflicts=('lib32-labview-2015')
+  _rpmver=15.0.1
+  _shortver="${_rpmver%.*}"
+  mkdir -p "${pkgdir}"/usr/lib32
+  bsdtar -xf "${srcdir}"/rpms/labview-2015-rte-32bit-${_rpmver}-*.i386.rpm -C "${pkgdir}"
+  mv "${pkgdir}"/usr/local/lib/LabVIEW-2015 "${pkgdir}"/usr/lib32/LabVIEW-2015
+  rmdir "${pkgdir}"/usr/{local/lib,local}
+  ln -s  LabVIEW-2015/liblvrt.so.${_rpmver} "${pkgdir}"/usr/lib32/liblvrt.so.${_shortver}
+  ln -s  LabVIEW-2015/liblvrtdark.so.${_rpmver} "${pkgdir}"/usr/lib32/liblvrtdark.so.${_shortver}
+  ln -s liblvrt.so.${_shortver} "${pkgdir}"/usr/lib32/liblvrt.so
+  ln -s liblvrtdark.so.${_shortver} "${pkgdir}"/usr/lib32/liblvrtdark.so
+  install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+}
+
+package_lib32-ni-visa-config (){
+  depends=('lib32-labview-2015'
+  'ni-visa-core')
+  mkdir -p "${pkgdir}/opt/${_pkgbase}"
+  bsdtar -xf "${srcdir}"/rpms/nivisa-config-"${pkgver}"-f*.i386.rpm -C "${pkgdir}"/opt/${_pkgbase}
+  mkdir -p "${pkgdir}"/usr/bin
+  cat <<EOF >"${pkgdir}"/usr/bin/visaconf
+#!/bin/bash
+LD_LIBRARY_PATH=/usr/lib32:\$LD_LIBRARY_PATH /${_vxipnppath}/linux/NIvisa/visaconf
+EOF
+  chmod +x "${pkgdir}"/usr/bin/visaconf
+  install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+}
 # vim:set ts=2 sw=2 et:
