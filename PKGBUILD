@@ -154,8 +154,9 @@ package_ni-visa-modules-dkms() {
 }
 
 package_lib32-labview-2015-rte () {
-  depends+=('lib32-gcc-libs'
-'lib32-libxinerama')
+  depends+=('lib32-libxinerama'
+'lib32-libxt'
+'lib32-libglvnd')
   provides=('lib32-labview-2015')
   conflicts=('lib32-labview-2015')
   _rpmver=15.0.1
