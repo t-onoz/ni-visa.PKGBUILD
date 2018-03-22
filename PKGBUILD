@@ -1,10 +1,8 @@
-pkgname=('ni-visa-core'
-'ni-visa-nipal'
-'ni-visa-nilxid'
-'ni-visa-mdnsresponder'
-'ni-visa-modules-dkms'
-'lib32-labview-2015-rte'
-'lib32-ni-visa-config'
+pkgname=('nivisa'
+'ni-pal'
+'nimdnsresponder'
+'ni-kal-dkms'
+'nivisa-config'
 )
 pkgbase='ni-visa'
 _pkgbase=${pkgbase}
@@ -25,8 +23,9 @@ source=("http://ftp.ni.com/support/softlib/visa/NI-VISA/${_short_ver}/Linux/NI-V
 "nilxid.service"
 "nimdnsd.service"
 "Makefile")
+makedepends=('patchelf')
 md5sums=('d114b70ce0802fa6bd7173a6f23f7257'
-         '9ffeb71e6e7c8488fee5fd01360fd7c2'
+         'df1797fde631530fdfc83fb061c02e53'
          'cdfd2e18de4370001bfbe0226cf04b18'
          '3097621413897bad8ad40dbf164d4cae'
          '40585959a474f2dac3c71eefcb185499'
@@ -41,50 +40,53 @@ prepare() {
   bsdtar -xf "${srcdir}/nivisa-${pkgver}"f*.tar.gz
   mkdir -p "${srcdir}/extract"
   cd "${srcdir}/extract"
-  find "${srcdir}/rpms" \
-    \( -name '*.noarch.rpm' \
-    -or -name '*.x86_64.rpm' \) \
-    -exec echo "extract {}" \; \
-    -exec bsdtar -xf {} \;
-  sed -i  \
-   -e 's/! -f \$modulePath\/nipalk\.ko//' \
-    "${srcdir}"/extract/usr/local/natinst/nipal/etc/init.d/nipal
 }
 
-package_ni-visa-core(){
-  provides+=('ni-visa')
-  conflicts+=('ni-visa')
+package_nivisa(){
+  provides=('nivisa' 'lib32-nivisa')
+  install=${pkgname}.install
   backup=("${_vxipnppath}/linux/NIvisa/Passport64/nivisa.ini"
   "${_vxipnppath}/linux/NIvisa/Passport/nivisa.ini"
   "${_vxipnppath}/linux/NIvisa/visaconf.ini")
-  mkdir -p "${pkgdir}"{/opt/${_pkgbase},/etc/natinst,/usr/include,/usr/lib,/usr/lib32,/etc/profile.d,/etc/ld.so.conf.d,/"${_natinst}"/share/NI-VISA}
+  mkdir -p "${pkgdir}"{/opt/${_pkgbase},/etc/natinst,/usr/include,/usr/lib,/usr/lib32,/etc/profile.d,/etc/ld.so.conf.d,/"${_natinst}"/share/NI-VISA,/usr/bin}
   bsdtar -xf "${srcdir}"/rpms/nivisa-32bit-${pkgver}-f*.x86_64.rpm -C "${pkgdir}/opt/${_pkgbase}"
   bsdtar -xf "${srcdir}"/rpms/nivisa-${pkgver}-f*.x86_64.rpm -C "${pkgdir}/opt/${_pkgbase}"
   ln -s /"${_vxipnppath}"/linux/lib64/libvisa.so "${pkgdir}"/usr/lib/libvisa.so
   ln -s /"${_vxipnppath}"/linux/bin/libvisa.so "${pkgdir}"/usr/lib32/libvisa.so
-  install -m644 "${srcdir}"/extract/usr/local/vxipnp/linux/include/*.h "${pkgdir}"/usr/include/
+  for f in "${pkgdir}"/${_vxipnppath}/linux/include/*.h; do
+    ln -s ${f#$pkgdir} "${pkgdir}"/usr/include/
+  done
   install -Dm644 99-usbtmc.rules "${pkgdir}"/usr/lib/udev/rules.d/99-usbtmc.rules
   ln -s  /"${_vxipnppath}"/linux/NIvisa/.LabVIEW/libVisaCtrl.so "${pkgdir}/${_natinst}"/share/NI-VISA/libVisaCtrl.so
   ln -s  /"${_vxipnppath}"/linux/NIvisa/.LabVIEW64/libVisaCtrl.so "${pkgdir}/${_natinst}"/share/NI-VISA/libVisaCtrl64.so
   echo "export VXIPNPPATH=/${_vxipnppath}" > "${pkgdir}"/etc/profile.d/vxipnppath.sh
-  echo "${_vxipnppath}" > "${pkgdir}/${_vxipnppath}"/etc/vxipnp.dir
+  echo "/${_vxipnppath}" > "${pkgdir}/${_vxipnppath}"/etc/vxipnp.dir
+  echo "/${_vxipnppath}" > "${pkgdir}/${_vxipnppath}"/etc/nivisa.dir
   ln -s "/${_vxipnppath}/etc" "${pkgdir}"/etc/natinst/nivisa
   ln -s "/${_vxipnppath}/etc" "${pkgdir}"/etc/natinst/vxipnp
     cat << EOF > "${pkgdir}"/etc/ld.so.conf.d/ni-visa.conf
 /opt/${_pkgbase}/usr/lib/x86_64-linux-gnu
 /opt/${_pkgbase}/usr/lib/i386-linux-gnu
 EOF
+  ln -s /${_vxipnppath}/bin/niLxiDiscovery "${pkgdir}"/usr/bin/niLxiDiscovery
+  install -Dm644 nilxid.service "${pkgdir}"/usr/lib/systemd/system/nilxid.service
   install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
-package_ni-visa-nipal(){
+package_ni-pal(){
+  depends+=('ni-kal')
+
   install=${pkgname}.install
-  depends+=('ni-visa-modules')
   mkdir -p "${pkgdir}"/{opt/${_pkgbase},usr/lib,usr/lib32,etc/natinst}
   bsdtar -xf "${srcdir}"/rpms/ni-pal-${pkgver}*.x86_64.rpm -C "${pkgdir}/opt/${_pkgbase}"
   bsdtar -xf "${srcdir}"/rpms/ni-pal-32bit-${pkgver}*.x86_64.rpm -C "${pkgdir}/opt/${_pkgbase}"
   bsdtar -xf "${srcdir}"/rpms/ni-pal-nikalmod-${pkgver}*.x86_64.rpm -C "${pkgdir}/opt/${_pkgbase}"
   bsdtar -xf "${srcdir}"/rpms/ni-pal-errors-${pkgver}*.noarch.rpm -C "${pkgdir}/opt/${_pkgbase}"
+
+  sed -i  \
+  -e 's/! -f \$modulePath\/nipalk\.ko//' \
+  "${pkgdir}/${_natinst}/nipal/etc/init.d/nipal"
+
   ln -s /"${_natinst}"/nipal/lib/libnipalu.so.${pkgver} "${pkgdir}"/usr/lib32/libnipalu.so.${pkgver}
   ln -s ./libnipalu.so.${pkgver} "${pkgdir}"/usr/lib32/libnipalu.so.1
   ln -s ./libnipalu.so.1 "${pkgdir}"/usr/lib32/libnipalu.so
@@ -99,53 +101,51 @@ package_ni-visa-nipal(){
   install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
-package_ni-visa-nilxid(){
-  install=${pkgname}.install
-  depends+=('ni-visa-mdnsresponder' 'lib32-gcc-libs')
-  install -Dm755 "${srcdir}"/extract/usr/local/vxipnp/bin/niLxiDiscovery "${pkgdir}"/usr/bin/niLxiDiscovery
-  install -Dm644 nilxid.service "${pkgdir}"/usr/lib/systemd/system/nilxid.service
-  install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
-}
-
-package_ni-visa-mdnsresponder() {
-  depends+=('ni-visa' 'lib32-glibc' 'bash')
+package_nimdnsresponder() {
+  depends+=('lib32-glibc' 'bash')
   install="${pkgname}.install"
   mkdir -p "${pkgdir}/opt/${_pkgbase}/etc/natinst"
+  mkdir -p "${pkgdir}"/usr/{bin,lib,lib32}
+  mkdir -p "${pkgdir}"/etc/natinst
   bsdtar -xf "${srcdir}"/rpms/nimdnsresponder-${pkgver}*.i386.rpm -C "${pkgdir}/opt/ni-visa"
 
-  install -Dm755 "${pkgdir}/${_natinst}"/nimdnsresponder/bin/nimdnsResponder "${pkgdir}"/usr/bin/nimdnsResponder
-  install -Dm644 "${pkgdir}/${_natinst}"/nimdnsresponder/etc/nss_nimdns.conf "${pkgdir}"/etc/nss_nimdns.conf
-  install -Dm644 nimdnsd.service "${pkgdir}"/usr/lib/systemd/system/nimdnsd.service
-
-  install -Dm755 "${pkgdir}/${_natinst}"/nimdnsresponder/lib/libnimdnsResponder.so.214.3.2 "${pkgdir}"/usr/lib32/libnimdnsResponder.so.214.3.2
+  ln -s /"${_natinst}"/nimdnsresponder/bin/nimdnsResponder "${pkgdir}"/usr/bin/nimdnsResponder
+  ln -s  /"${_natinst}"/nimdnsresponder/etc/nss_nimdns.conf "${pkgdir}"/etc/nss_nimdns.conf
+  ln -s /"${_natinst}"/nimdnsresponder/lib/libnimdnsResponder.so.214.3.2 "${pkgdir}"/usr/lib32/libnimdnsResponder.so.214.3.2
+  ln -s ./libnimdnsResponder.so.214.3.2 "${pkgdir}"/usr/lib32/libnimdnsResponder.so.107
   ln -s ./libnimdnsResponder.so.214.3.2 "${pkgdir}"/usr/lib32/libnimdnsResponder.so.214
   ln -s ./libnimdnsResponder.so.214 "${pkgdir}"/usr/lib32/libnimdnsResponder.so
-
-  install -Dm755 "${pkgdir}/${_natinst}"/nimdnsresponder/lib/libnss_nimdns.so.2 "${pkgdir}"/usr/lib32/libnss_nimdns.so.2
+  ln -s /"${_natinst}"/nimdnsresponder/lib/libnss_nimdns.so.2 "${pkgdir}"/usr/lib32/libnss_nimdns.so.2
   ln -s ./libnss_nimdns.so.2 "${pkgdir}"/usr/lib32/libnss_nimdns.so
 
   ln -s /"${_natinst}"/nimdnsresponder/etc "${pkgdir}"/opt/${_pkgbase}/etc/natinst/nimdnsresponder
+
   echo "/${_natinst}/nimdnsresponder" > "${pkgdir}/${_natinst}"/nimdnsresponder/etc/nimdnsresponder.dir
+
+  install -Dm644 nimdnsd.service "${pkgdir}"/usr/lib/systemd/system/nimdnsd.service
   install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
-package_ni-visa-modules-dkms() {
+package_ni-kal-dkms() {
   depends+=('dkms')
-  provides=('ni-visa-modules')
-  conflicts+=('ni-visa-modules')
-  mkdir -p "${pkgdir}"{/opt/${_pkgbase}/objects,/usr/bin,/etc/natinst,/usr/share/nikal}
+  provides=('ni-kal')
+  conflicts+=('ni-kal')
+  mkdir -p "${pkgdir}"{/opt/${_pkgbase}/objects,/usr/bin,/etc/natinst,/usr/share/nikal} "${srcdir}"/extract
   bsdtar -xf "${srcdir}"/rpms/ni-kal-${pkgver}*.noarch.rpm -C "${pkgdir}"/opt/${_pkgbase}
+  bsdtar -xf "${srcdir}"/rpms/nivisak-${pkgver}-f*.x86_64.rpm -C "${srcdir}"/extract
+  bsdtar -xf "${srcdir}"/rpms/nidimki-${pkgver}-f*.x86_64.rpm -C "${srcdir}"/extract
+  find "${srcdir}/rpms" -name '*-nikalmod-'"${pkgver}"'*.x86_64.rpm' -exec bsdtar -xf {} -C "${srcdir}"/extract \;
   find "${srcdir}"/extract -name '*-unversioned.o' -exec install -Dm644 {} "${pkgdir}"/opt/${_pkgbase}/objects/ \;
   ln -s /"${_natinst}"/nikal/bin/installerUtility.sh "${pkgdir}"/usr/share/nikal/installerUtility.sh
 
   cc -o "${pkgdir}"/usr/bin/nidevnode "${pkgdir}/${_natinst}"/nikal/src/nikal/nidevnode.c
-  install -Dm644 dkms.conf "${pkgdir}/usr/src/${_pkgbase}-${pkgver}/dkms.conf"
-  install -Dm644 Makefile "${pkgdir}/usr/src/${_pkgbase}-${pkgver}/Makefile"
-  cp -rL "/${pkgdir}/${_natinst}"/nikal/src/{nikal,client} "${pkgdir}"/usr/src/${_pkgbase}-${pkgver}/
-  touch "${pkgdir}"/usr/src/${_pkgbase}-${pkgver}/client/module.mak
-  sed -e "s/@_PKGBASE@/${_pkgbase}/" \
+  install -Dm644 dkms.conf "${pkgdir}/usr/src/${pkgname}-${pkgver}/dkms.conf"
+  install -Dm644 Makefile "${pkgdir}/usr/src/${pkgname}-${pkgver}/Makefile"
+  cp -rL "/${pkgdir}/${_natinst}"/nikal/src/{nikal,client} "${pkgdir}"/usr/src/${pkgname}-${pkgver}/
+  touch "${pkgdir}"/usr/src/${pkgname}-${pkgver}/client/module.mak
+  sed -e "s/@PKGNAME@/${pkgname}/" \
       -e "s/@PKGVER@/${pkgver}/" \
-      -i "${pkgdir}"/usr/src/${_pkgbase}-${pkgver}/dkms.conf
+      -i "${pkgdir}"/usr/src/${pkgname}-${pkgver}/dkms.conf
 
   ln -sf /"${_natinst}"/nikal/etc "${pkgdir}"/opt/${_pkgbase}/etc/natinst/nikal
   ln -s /"${_natinst}"/nikal/etc "${pkgdir}"/etc/natinst/nikal
@@ -153,30 +153,12 @@ package_ni-visa-modules-dkms() {
   install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
-package_lib32-labview-2015-rte () {
-  depends+=('lib32-libxinerama'
-'lib32-libxt'
-'lib32-libglvnd')
-  provides=('lib32-labview-2015')
-  conflicts=('lib32-labview-2015')
-  _rpmver=15.0.1
-  _shortver="${_rpmver%.*}"
-  mkdir -p "${pkgdir}"/usr/lib32
-  bsdtar -xf "${srcdir}"/rpms/labview-2015-rte-32bit-${_rpmver}-*.i386.rpm -C "${pkgdir}"
-  mv "${pkgdir}"/usr/local/lib/LabVIEW-2015 "${pkgdir}"/usr/lib32/LabVIEW-2015
-  rmdir "${pkgdir}"/usr/{local/lib,local}
-  ln -s  LabVIEW-2015/liblvrt.so.${_rpmver} "${pkgdir}"/usr/lib32/liblvrt.so.${_shortver}
-  ln -s  LabVIEW-2015/liblvrtdark.so.${_rpmver} "${pkgdir}"/usr/lib32/liblvrtdark.so.${_shortver}
-  ln -s liblvrt.so.${_shortver} "${pkgdir}"/usr/lib32/liblvrt.so
-  ln -s liblvrtdark.so.${_shortver} "${pkgdir}"/usr/lib32/liblvrtdark.so
-  install -D -m644 "${srcdir}"/LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
-}
-
-package_lib32-ni-visa-config (){
-  depends=('lib32-labview-2015'
-  'ni-visa-core')
+package_nivisa-config (){
+  depends=('lib32-labview-2015-rte'
+  'nivisa')
   mkdir -p "${pkgdir}/opt/${_pkgbase}"
-  bsdtar -xf "${srcdir}"/rpms/nivisa-config-"${pkgver}"-f*.i386.rpm -C "${pkgdir}"/opt/${_pkgbase}
+  bsdtar -xf "${srcdir}"/rpms/"${pkgname}"-"${pkgver}"-f*.i386.rpm -C "${pkgdir}"/opt/${_pkgbase}
+  patchelf --remove-rpath "${pkgdir}/${_vxipnppath}"/linux/NIvisa/visaconf
   mkdir -p "${pkgdir}"/usr/bin
   cat <<EOF >"${pkgdir}"/usr/bin/visaconf
 #!/bin/bash
